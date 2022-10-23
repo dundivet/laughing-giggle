@@ -67,14 +67,14 @@ class Group
         $this->tied = false;
 
         self::matchPoints($this->positionsTable, $match);
-        self::orderPositionsTable($this->positionsTable);
-        if ($this->tied) {
-            self::orderTiedPositionsTable($this->positionsTable);
-        }
     }
 
     public function result(): array
     {
+        self::orderPositionsTable($this->positionsTable);
+        if ($this->tied) {
+            self::orderTiedPositionsTable($this->positionsTable);
+        }
         // return $this->positionsTable;
         return array_keys($this->positionsTable);
     }
