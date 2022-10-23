@@ -8,11 +8,24 @@ class Group
     const DRAW = 1;
     const LOSE = 0;
 
+    const DEFAULT_POSITION_TABLE = [
+        'points' => 0,
+        'matchesWin' => 0,
+        'matchesDraw' => 0,
+        'matchesLose' => 0,
+        'matchesPlayed' => 0,
+        'goalsFor' => 0,
+        'goalsAgainst' => 0,
+        'goalDifference' => 0,
+    ];
+
     private array $teams;
 
     private array $matches;
 
     private array $positionsTable;
+
+    private bool $tied;
 
     public function __construct(array $teams)
     {
@@ -28,15 +41,8 @@ class Group
 
         $this->teams = $teams;
         $this->matches = [];
-        $this->positionsTable = array_fill_keys($teams, [
-            'points' => 0,
-            'matchesWin' => 0,
-            'matchesDraw' => 0,
-            'matchesLose' => 0,
-            'goalsFor' => 0,
-            'goalsAgainst' => 0,
-            'goalDifference' => 0,
-        ]);
+        $this->tied = false;
+        $this->positionsTable = array_fill_keys($teams, self::DEFAULT_POSITION_TABLE);
     }
 
     public function match(string $team1, int $score1, string $team2, int $score2)
@@ -58,14 +64,19 @@ class Group
             'score2' => $score2,
         ];
         $this->matches[] = $match;
+        $this->tied = false;
+
         self::matchPoints($this->positionsTable, $match);
         self::orderPositionsTable($this->positionsTable);
+        if ($this->tied) {
+            self::orderTiedPositionsTable($this->positionsTable);
+        }
     }
 
     public function result(): array
     {
-        return $this->positionsTable;
-        // return array_keys($this->positionsTable);
+        // return $this->positionsTable;
+        return array_keys($this->positionsTable);
     }
 
     /**
@@ -73,6 +84,13 @@ class Group
      */
     private static function matchPoints(&$positionsTable, array $match)
     {
+        if (!in_array($match['team1'], array_keys($positionsTable))) {
+            $positionsTable[$match['team1']] = self::DEFAULT_POSITION_TABLE;
+        }
+        if (!in_array($match['team2'], array_keys($positionsTable))) {
+            $positionsTable[$match['team2']] = self::DEFAULT_POSITION_TABLE;
+        }
+
         if ($match['score1'] > $match['score2']) {
             self::updatePositionsTable($positionsTable[$match['team1']], self::WINNER, $match['score1'], $match['score2']);
             self::updatePositionsTable($positionsTable[$match['team2']], self::LOSE, $match['score2'], $match['score1']);
@@ -99,62 +117,69 @@ class Group
                 break;
         }
 
+        $positionsTable['matchesPlayed']++;
         $positionsTable['points'] += $points;
         $positionsTable['goalsFor'] += $for;
         $positionsTable['goalsAgainst'] += $against;
         $positionsTable['goalDifference'] = $positionsTable['goalsFor'] - $positionsTable['goalsAgainst'];
     }
 
-    private function orderPositionsTable(&$positionsTable): void
+    private function orderPositionsTable(array &$positionsTable, bool $global = true): void
     {
-        uksort($positionsTable, function ($a, $b) use (&$positionsTable) {
+        uksort($positionsTable, function ($a, $b) use (&$positionsTable, $global) {
             $teamA = $positionsTable[$a];
             $teamB = $positionsTable[$b];
 
-            return self::tiebraker($teamA, $teamB);
+            $result = self::tiebraker($teamA, $teamB);
+            if ($result === 0 && $global && $teamA['matchesPlayed'] > 0 && $teamB['matchesPlayed'] > 0) {
+                $this->tied = true;
+            }
+
+            return $result;
         });
     }
 
-    private function orderTiedPositionsTable(): void
+    private function orderTiedPositionsTable(&$positionsTable): void
     {
+        // find tied teams
         $tiedTeams = [];
-        foreach ($this->teams as $teamA) {
-            foreach ($this->teams as $teamB) {
-                if ($teamA === $teamB) {
-                    continue;
-                }
-
-                if ($this->positionsTable[$teamA]['points'] === $this->positionsTable[$teamB]['points']) {
-                    if (!in_array($teamA, $tiedTeams, true)) {
-                        $tiedTeams[] = $teamA;
-                    }
-                    if (!in_array($teamB, $tiedTeams, true)) {
-                        $tiedTeams[] = $teamB;
-                    }
-                }
-            }
-
-            if (count($tiedTeams) === 4) {
-                break;
+        $auxCounter = [];
+        foreach ($positionsTable as $team => $row) {
+            $auxCounter[$row['points']][] = $team;
+            if (count($auxCounter[$row['points']]) > 1) {
+                $tiedTeams = $auxCounter[$row['points']];
             }
         }
 
         // case (c)
-        $tiedPositionsTable = array_fill_keys($tiedTeams, [
-            'points' => 0,
-            'matchesWin' => 0,
-            'matchesDraw' => 0,
-            'matchesLose' => 0,
-            'goalsFor' => 0,
-            'goalsAgainst' => 0,
-            'goalDifference' => 0,
-        ]);
+        // find positions table with tied teams only
+        $tiedPositionsTable = array_fill_keys($tiedTeams, self::DEFAULT_POSITION_TABLE);
         foreach ($this->matches as $match) {
             if (in_array($match['team1'], $tiedTeams, true) && in_array($match['team2'], $tiedTeams, true)) {
-                self::matchPoints($subPositionsTable, $match);
+                self::matchPoints($tiedPositionsTable, $match);
             }
         }
-        self::orderPositionsTable($tiedPositionsTable);
+        self::orderPositionsTable($tiedPositionsTable, false);
+
+        // reordering with tied positions table
+        $auxPositionsTable = $positionsTable;
+        $positionsTable = [];
+        $tieflag = false;
+        foreach ($auxPositionsTable as $team => $row) {
+            if (in_array($team, $tiedTeams)) {
+                $tieflag = true;
+                continue;
+            }
+
+            if ($tieflag) {
+                foreach ($tiedPositionsTable as $teamT => $rowT) {
+                    $positionsTable[$teamT] = $auxPositionsTable[$teamT];
+                }
+                $tieflag = false;
+            }
+
+            $positionsTable[$team] = $row;
+        }
     }
 
     private static function tiebraker(array $teamA, array $teamB): int
@@ -192,20 +217,30 @@ class Group
     }
 }
 
-$groupA = new Group(['Brasil', 'Colombia', 'Argentina', 'Uruguay']);
-$groupA->match('Argentina', 1, 'Brasil', 1);
-$groupA->match('Argentina', 3, 'Colombia', 0);
-$groupA->match('Argentina', 2, 'Uruguay', 1);
-$groupA->match('Brasil', 3, 'Colombia', 1);
-$groupA->match('Brasil', 2, 'Uruguay', 0);
-$groupA->match('Colombia', 3, 'Uruguay', 1);
-
-/* 
-| Equipo    | Ganados | Empate | Perdidos | A Favor | En Contra | Diferencia | Puntos |
-| Brasil    | 2       | 1      | 0        | 6       | 2         | +4         | 7      |
-| Argentina | 2       | 1      | 0        | 6       | 2         | +4         | 7      |
-| Colombia  | 1       | 0      | 2        | 4       | 7         | -4         | 3      |
-| Uruguay   | 0       | 1      | 2        | 3       | 7         | -4         | 1      |
-*/
+$groupA = new Group(['Colombia', 'Japón', 'Senegal', 'Polonia']);
+$groupA->match('Senegal', 0, 'Colombia', 1);
+$groupA->match('Japón', 0, 'Polonia', 1);
+$groupA->match('Senegal', 2, 'Japón', 2);
+$groupA->match('Polonia', 0, 'Colombia', 3);
+$groupA->match('Polonia', 1, 'Senegal', 2);
+$groupA->match('Colombia', 1, 'Japón', 3);
 
 print_r($groupA->result());
+
+// $groupB = new Group(['Brasil', 'Colombia', 'Argentina', 'Uruguay']);
+// $groupB->match('Argentina', 1, 'Brasil', 1);
+// $groupB->match('Argentina', 2, 'Colombia', 0);
+// $groupB->match('Brasil', 2, 'Colombia', 0);
+// $groupB->match('Colombia', 3, 'Uruguay', 1);
+// $groupB->match('Argentina', 2, 'Uruguay', 1);
+// $groupB->match('Brasil', 2, 'Uruguay', 0);
+
+// /* 
+// | Equipo    | Ganados | Empate | Perdidos | A Favor | En Contra | Diferencia | Puntos |
+// | Brasil    | 2       | 1      | 0        | 5       | 1         | +4         | 7      |
+// | Argentina | 2       | 1      | 0        | 5       | 2         | +3         | 7      |
+// | Colombia  | 1       | 0      | 2        | 3       | 5         | -2         | 3      |
+// | Uruguay   | 0       | 0      | 3        | 2       | 7         | -5         | 0      |
+// */
+
+// print_r($groupB->result());
