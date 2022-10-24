@@ -16,9 +16,9 @@ function clear_duplicates(array $array): array
     return $output;
 }
 
+echo "EXERCISE 1\n";
 print_r(clear_duplicates([1, 2, 10, 3, 4, 9, 5, 6, 8, 7, 8, 9, 10]));
 echo "\n";
-
 
 
 // EXERCISE 2
@@ -39,11 +39,6 @@ function is_periodic(string $periodicString): bool
     return false;
 }
 
-print_r(is_periodic("blablablabla") ? "true\n" : "false\n");
-print_r(is_periodic("blablebli") ? "true\n" : "false\n");
-print_r(is_periodic("blablabl") ? "true\n" : "false\n");
-print_r(is_periodic("101101101") ? "true\n" : "false\n");
-print_r(is_periodic("1010101010") ? "true\n" : "false\n");
 
 function next_periodic(int $n): int
 {
@@ -70,15 +65,20 @@ function int_to_binary(int $n): string
     return implode('', $binary);
 }
 
+echo "EXERCISE 2\n";
+print_r(is_periodic("blablablabla") ? "true\n" : "false\n");
+print_r(is_periodic("blablebli") ? "true\n" : "false\n");
+print_r(is_periodic("blablabl") ? "true\n" : "false\n");
+print_r(is_periodic("101101101") ? "true\n" : "false\n");
+print_r(is_periodic("1010101010") ? "true\n" : "false\n");
+
 print_r(int_to_binary(365)); echo "\n";
 print_r(int_to_binary(682)); echo "\n";
-
 print_r(next_periodic(300)); echo "\n";
-
+echo "\n";
 
 
 // EXERCISE 3
-
 
 function rectangles_intersect_area(...$coordinates)
 {
@@ -113,6 +113,7 @@ function getRightTop(...$coordinates)
     return [max([$x1, $x2]), max([$y1, $y2])];
 }
 
+echo "EXERCISE 3\n";
 $ex1 = [0,0,20,20,10,10,30,30];
 print_r(rectangles_intersect_area(...$ex1)); echo "\n";
 $ex2 = [0,20,20,0,10,30,30,10];
@@ -123,3 +124,4 @@ $ex4 = [0,20,30,0,10,10,30,20];
 print_r(rectangles_intersect_area(...$ex4)); echo "\n";
 $ex5 = [0,0,10,10,20,20,30,30];
 print_r(rectangles_intersect_area(...$ex5)); echo "\n";
+echo "\n";
