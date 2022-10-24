@@ -29,7 +29,4 @@ WHERE authoring.ctty > owning.ctty;
 
 /* EJERCICIO 4 */
 
-UPDATE people AS p
-  (SELECT ) AS b
-SET p.favorite_author_id = b.author_id
-WHERE p.id = b.owner_id;
+/* not implemented yet */
